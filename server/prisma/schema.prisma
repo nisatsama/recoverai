@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum PaymentMethod {
+  UPI
+  CARD
+  NET_BANKING
+  WALLET
+  BANK_TRANSFER
+}
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+enum FailureCategory {
+  TEMPORARY
+  PERMANENT
+  CUSTOMER_ACTION_REQUIRED
+  UNKNOWN
+}
+enum RecoveryAction {
+  RETRY
+  NOTIFY_CUSTOMER
+  REQUEST_NEW_PAYMENT_METHOD
+  SKIP
+}
+enum RecoveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  BLOCKED
+  SKIPPED
+}
+enum AuditActor {
+  AI
+  POLICY_ENGINE
+  SYSTEM
+  MERCHANT
+}
+model Merchant {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  transactions Transaction[]
+
+  @@index([email])
+}
+model Transaction {
+  id            String            @id @default(uuid())
+  merchantId    String
+  amount        Decimal           @db.Decimal(12, 2)
+  currency      String            @default("INR")
+  paymentMethod PaymentMethod
+  status        TransactionStatus
+  failureReason String?
+  customerEmail String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  merchant        Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  aiDecision      AIDecision?
+  recoveryAttempts RecoveryAttempt[]
+  policyDecisions PolicyDecision[]
+  auditLogs       AuditLog[]
+
+  @@index([merchantId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([merchantId, status])
+}
+model AIDecision {
+  id                 String         @id @default(uuid())
+  transactionId      String         @unique
+  failureCategory    FailureCategory
+  reason             String
+  recommendedAction  RecoveryAction
+  confidence         Decimal        @db.Decimal(5, 4)
+  recoveryProbability Decimal       @db.Decimal(5, 4)
+  createdAt          DateTime       @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([failureCategory])
+  @@index([recommendedAction])
+}
+model RecoveryAttempt {
+  id             String         @id @default(uuid())
+  transactionId  String
+  action         RecoveryAction
+  status         RecoveryStatus @default(PENDING)
+  amountRecovered Decimal?      @db.Decimal(12, 2)
+  executedAt     DateTime?
+  failureReason  String?
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([status])
+  @@index([transactionId, status])
+}
+model PolicyDecision {
+  id              String         @id @default(uuid())
+  transactionId   String
+  requestedAction RecoveryAction
+  allowed         Boolean
+  reason          String
+  createdAt       DateTime       @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([allowed])
+}
+model AuditLog {
+  id            String      @id @default(uuid())
+  transactionId String
+  event         String
+  actor         AuditActor
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([event])
+  @@index([createdAt])
+}
