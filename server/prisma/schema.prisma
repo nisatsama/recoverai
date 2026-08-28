@@ -3,7 +3,6 @@ generator client {
 }
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 enum PaymentMethod {
   UPI
@@ -46,10 +45,16 @@ model Merchant {
   id        String   @id @default(uuid())
   name      String
   email     String   @unique
-  password  String
+  password  String?
+  googleId     String?  @unique
+  authProvider String   @default("local")
+
   createdAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   transactions Transaction[]
+  recoveryAttempts RecoveryAttempt[]
+  auditLogs    AuditLog[]
 
   @@index([email])
 }

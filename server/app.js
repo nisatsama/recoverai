@@ -1,6 +1,11 @@
 const express = require("express");
 require("dotenv").config();
 const app = express();
+const transactionRoutes = "./routes/transactionRoutes";
+const authRoutes = require("./routes/authRoutes");
+
+app.use("/api/auth", authRoutes);
+app.use("/api/transactions", transactionRoutes);
 app.get("/", (req, res) => {
   res.send("Hello World");
 });
