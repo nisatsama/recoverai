@@ -1,73 +1,30 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 
-const prisma = new PrismaClient();
-
-/**
- * Generate JWT
- */
 const generateToken = (merchantId) => {
-  return jwt.sign({ merchantId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  });
+  return jwt.sign({ merchantId }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
-/**
- * Remove password from merchant object
- */
-const sanitizeMerchant = (merchant) => {
-  const { password, ...merchantWithoutPassword } = merchant;
-
-  return merchantWithoutPassword;
-};
-
-/**
- * POST /api/auth/register
- * Register a merchant using email/password
- */
-const registerMerchant = async (req, res) => {
+// POST /api/auth/register
+const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate required fields
     if (!name || !email || !password) {
       return res.status(400).json({
-        success: false,
         message: "Name, email and password are required",
       });
     }
 
-    // Validate name
-    if (name.trim().length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: "Name must be at least 2 characters long",
-      });
-    }
-
-    // Normalize email
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // Validate email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(normalizedEmail)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid email address",
-      });
-    }
-
-    // Validate password
     if (password.length < 8) {
       return res.status(400).json({
-        success: false,
-        message: "Password must be at least 8 characters long",
+        message: "Password must be at least 8 characters",
       });
     }
 
-    // Check whether merchant already exists
+    const normalizedEmail = email.toLowerCase().trim();
+
     const existingMerchant = await prisma.merchant.findUnique({
       where: {
         email: normalizedEmail,
@@ -76,169 +33,139 @@ const registerMerchant = async (req, res) => {
 
     if (existingMerchant) {
       return res.status(409).json({
-        success: false,
         message: "Merchant with this email already exists",
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create merchant
     const merchant = await prisma.merchant.create({
       data: {
         name: name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
-        authProvider: "local",
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
       },
     });
 
-    // Generate JWT
     const token = generateToken(merchant.id);
 
-    // Never return password
-    const safeMerchant = sanitizeMerchant(merchant);
-
     return res.status(201).json({
-      success: true,
       message: "Merchant registered successfully",
       token,
-      merchant: safeMerchant,
+      merchant,
     });
   } catch (error) {
-    console.error("Register merchant error:", error);
+    console.error("Register error:", error);
 
     return res.status(500).json({
-      success: false,
       message: "Internal server error",
     });
   }
 };
 
-/**
- * POST /api/auth/login
- * Login merchant using email/password
- */
-const loginMerchant = async (req, res) => {
+// POST /api/auth/login
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({
-        success: false,
         message: "Email and password are required",
       });
     }
 
-    // Normalize email
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
 
-    // Find merchant
     const merchant = await prisma.merchant.findUnique({
       where: {
         email: normalizedEmail,
       },
     });
 
-    // Avoid revealing whether email exists
-    if (!merchant) {
+    if (!merchant || !merchant.password) {
       return res.status(401).json({
-        success: false,
         message: "Invalid email or password",
       });
     }
 
-    // Google-only account cannot use password login
-    if (!merchant.password) {
-      return res.status(401).json({
-        success: false,
-        message: "This account uses Google authentication",
-      });
-    }
+    const passwordMatch = await bcrypt.compare(password, merchant.password);
 
-    // Compare password
-    const isPasswordValid = await bcrypt.compare(password, merchant.password);
-
-    if (!isPasswordValid) {
+    if (!passwordMatch) {
       return res.status(401).json({
-        success: false,
         message: "Invalid email or password",
       });
     }
 
-    // Generate JWT
     const token = generateToken(merchant.id);
 
-    // Never return password
-    const safeMerchant = sanitizeMerchant(merchant);
-
     return res.status(200).json({
-      success: true,
       message: "Login successful",
       token,
-      merchant: safeMerchant,
+      merchant: {
+        id: merchant.id,
+        name: merchant.name,
+        email: merchant.email,
+      },
     });
   } catch (error) {
-    console.error("Login merchant error:", error);
+    console.error("Login error:", error);
 
     return res.status(500).json({
-      success: false,
       message: "Internal server error",
     });
   }
 };
 
-/**
- * GET /api/auth/me
- * Get currently authenticated merchant
- *
- * Requires auth middleware.
- * Middleware should set req.merchantId
- */
-const getCurrentMerchant = async (req, res) => {
+// GET /api/auth/me
+const getMe = async (req, res) => {
   try {
-    if (!req.merchantId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
-    }
-
-    // Find merchant using ID from verified JWT
     const merchant = await prisma.merchant.findUnique({
       where: {
-        id: req.merchantId,
+        id: req.merchant.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
     if (!merchant) {
       return res.status(404).json({
-        success: false,
         message: "Merchant not found",
       });
     }
 
-    // Never return password
-    const safeMerchant = sanitizeMerchant(merchant);
-
     return res.status(200).json({
-      success: true,
-      merchant: safeMerchant,
+      merchant,
     });
   } catch (error) {
-    console.error("Get current merchant error:", error);
+    console.error("Get me error:", error);
 
     return res.status(500).json({
-      success: false,
       message: "Internal server error",
     });
   }
 };
 
+// POST /api/auth/logout
+const logout = async (req, res) => {
+  return res.status(200).json({
+    message: "Logout successful",
+  });
+};
+
 module.exports = {
-  registerMerchant,
-  loginMerchant,
-  getCurrentMerchant,
+  register,
+  login,
+  getMe,
+  logout,
 };

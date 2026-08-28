@@ -1,31 +1,24 @@
 const express = require("express");
 
 const {
-  registerMerchant,
-  loginMerchant,
-  getCurrentMerchant,
+  register,
+  login,
+  getMe,
+  logout,
 } = require("../controllers/authController");
 
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-/**
- * POST /api/auth/register
- * Register merchant
- */
-router.post("/register", registerMerchant);
+// Local authentication
+router.post("/register", register);
+router.post("/login", login);
 
-/**
- * POST /api/auth/login
- * Login merchant
- */
-router.post("/login", loginMerchant);
+// Current authenticated merchant
+router.get("/me", authMiddleware, getMe);
 
-/**
- * GET /api/auth/me
- * Get authenticated merchant
- */
-router.get("/me", authMiddleware, getCurrentMerchant);
+// Logout
+router.post("/logout", authMiddleware, logout);
 
 module.exports = router;

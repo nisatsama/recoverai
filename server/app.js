@@ -6,7 +6,9 @@ const authRoutes = require("./routes/authRoutes");
 const aiDecisionRoutes = require("./routes/aiDecision.routes");
 const recoveryRoutes = require("./routes/recoveryRoutes");
 const policyRoutes = require("./routes/policy.routes");
+const auditRoutes = require("./routes/auditRoutes");
 app.use(express.json());
+app.use("/api/audit", auditRoutes);
 app.use("/api/policy", policyRoutes);
 
 app.use("/api/recovery", recoveryRoutes);
