@@ -5,7 +5,10 @@ const transactionRoutes = "./routes/transactionRoutes";
 const authRoutes = require("./routes/authRoutes");
 const aiDecisionRoutes = require("./routes/aiDecision.routes");
 const recoveryRoutes = require("./routes/recoveryRoutes");
+const policyRoutes = require("./routes/policy.routes");
 app.use(express.json());
+app.use("/api/policy", policyRoutes);
+
 app.use("/api/recovery", recoveryRoutes);
 app.use("/api/ai", aiDecisionRoutes);
 app.use("/api/auth", authRoutes);
