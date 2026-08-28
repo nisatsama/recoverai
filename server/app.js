@@ -3,7 +3,11 @@ require("dotenv").config();
 const app = express();
 const transactionRoutes = "./routes/transactionRoutes";
 const authRoutes = require("./routes/authRoutes");
-
+const aiDecisionRoutes = require("./routes/aiDecision.routes");
+const recoveryRoutes = require("./routes/recoveryRoutes");
+app.use(express.json());
+app.use("/api/recovery", recoveryRoutes);
+app.use("/api/ai", aiDecisionRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.get("/", (req, res) => {
