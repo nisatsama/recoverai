@@ -4,9 +4,9 @@ const {
   evaluatePolicy,
   getPolicyDecision,
   getPolicyDecisions,
-} = require("../controllers/policy.controller");
+} = require("../controllers/policyController");
 
-const authMiddleware = require("../middleware/auth.middleware");
+const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 

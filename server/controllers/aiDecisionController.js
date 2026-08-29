@@ -1,5 +1,5 @@
 const prisma = require("../config/prisma");
-const aiService = require("../services/ai.service");
+const aiService = require("../services/aiService");
 
 /**
  * POST /api/ai/transactions/:transactionId/analyze

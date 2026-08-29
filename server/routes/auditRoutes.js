@@ -4,9 +4,9 @@ const router = express.Router();
 const {
   getAuditLogs,
   getTransactionAuditLogs,
-} = require("../controllers/audit.controller");
+} = require("../controllers/auditController");
 
-const authMiddleware = require("../middlewares/auth.middleware");
+const authMiddleware = require("../middlewares/authMiddleware");
 
 router.get("/", authMiddleware, getAuditLogs);
 

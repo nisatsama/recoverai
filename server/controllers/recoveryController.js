@@ -1,11 +1,29 @@
-const {
-  PrismaClient,
-  RecoveryAction,
-  RecoveryStatus,
-  AuditActor,
-} = require("@prisma/client");
+const prisma = require("../config/prisma");
 
-const prisma = new PrismaClient();
+// Prisma 7 + CommonJS
+// Keep these values aligned with prisma/schema.prisma
+
+const RecoveryAction = {
+  RETRY: "RETRY",
+  NOTIFY_CUSTOMER: "NOTIFY_CUSTOMER",
+  REQUEST_NEW_PAYMENT_METHOD: "REQUEST_NEW_PAYMENT_METHOD",
+  SKIP: "SKIP",
+};
+
+const RecoveryStatus = {
+  PENDING: "PENDING",
+  SUCCESS: "SUCCESS",
+  FAILED: "FAILED",
+  BLOCKED: "BLOCKED",
+  SKIPPED: "SKIPPED",
+};
+
+const AuditActor = {
+  AI: "AI",
+  POLICY_ENGINE: "POLICY_ENGINE",
+  SYSTEM: "SYSTEM",
+  MERCHANT: "MERCHANT",
+};
 
 /*
 |--------------------------------------------------------------------------

@@ -8,9 +8,9 @@ const {
   getRecoveryAttempts,
   getRecoveryAttemptById,
   getRecoveryAttemptByTransaction,
-} = require("../controllers/recovery.controller");
+} = require("../controllers/recoveryController");
 
-const { protect } = require("../middleware/auth.middleware");
+//const { protect } = require("../middleware/authMiddleware");
 
 /*
 |--------------------------------------------------------------------------

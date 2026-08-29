@@ -2,7 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const {
   evaluatePolicy,
   createPolicyDecision,
-} = require("../services/policy.service");
+} = require("../services/policyService");
 
 const prisma = new PrismaClient();
 

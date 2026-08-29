@@ -5,9 +5,9 @@ const {
   createAIDecision,
   getAIDecision,
   getAIDecisions,
-} = require("../controllers/aiDecision.controller");
+} = require("../controllers/aiDecisionController");
 
-const authMiddleware = require("../middleware/auth.middleware");
+const authMiddleware = require("../middleware/authMiddleware");
 
 router.post(
   "/transactions/:transactionId/analyze",
