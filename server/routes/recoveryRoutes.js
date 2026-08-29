@@ -10,7 +10,7 @@ const {
   getRecoveryAttemptByTransaction,
 } = require("../controllers/recoveryController");
 
-//const { protect } = require("../middleware/authMiddleware");
+const protect = require("../middleware/authMiddleware");
 
 /*
 |--------------------------------------------------------------------------

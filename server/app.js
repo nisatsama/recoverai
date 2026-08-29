@@ -5,7 +5,7 @@ const transactionRoutes = "./routes/transactionRoutes";
 const authRoutes = require("./routes/authRoutes");
 const aiDecisionRoutes = require("./routes/aiDecisionRoutes");
 const recoveryRoutes = require("./routes/recoveryRoutes");
-const policyRoutes = require("./routes/policyoutes");
+const policyRoutes = require("./routes/policyroutes");
 const auditRoutes = require("./routes/auditRoutes");
 app.use(express.json());
 app.use("/api/audit", auditRoutes);
