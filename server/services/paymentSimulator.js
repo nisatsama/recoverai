@@ -15,17 +15,19 @@ const simulatePayment = (failureReason) => {
     };
   }
 
-  const randomValue = Math.random();
+  const success = Math.random() < successProbability;
 
-  if (randomValue < successProbability) {
+  if (success) {
     return {
       status: "SUCCESS",
+      transactionStatus: "PAID",
       message: "Payment recovered successfully",
     };
   }
 
   return {
     status: "FAILED",
+    transactionStatus: "FAILED",
     message: "Payment recovery attempt failed",
   };
 };
