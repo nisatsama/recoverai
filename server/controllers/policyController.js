@@ -1,10 +1,8 @@
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const {
   evaluatePolicy,
   createPolicyDecision,
 } = require("../services/policyService");
-
-const prisma = new PrismaClient();
 
 /**
  * POST /api/policy/transactions/:transactionId/evaluate

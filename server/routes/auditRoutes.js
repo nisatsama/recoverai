@@ -6,7 +6,7 @@ const {
   getTransactionAuditLogs,
 } = require("../controllers/auditController");
 
-const authMiddleware = require("../middlewares/authMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
 
 router.get("/", authMiddleware, getAuditLogs);
 

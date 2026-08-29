@@ -1,20 +1,21 @@
 const express = require("express");
 require("dotenv").config();
 const app = express();
-const transactionRoutes = "./routes/transactionRoutes";
+const transactionRoutes = require("./routes/transactionRoutes");
 const authRoutes = require("./routes/authRoutes");
 const aiDecisionRoutes = require("./routes/aiDecisionRoutes");
 const recoveryRoutes = require("./routes/recoveryRoutes");
 const policyRoutes = require("./routes/policyroutes");
 const auditRoutes = require("./routes/auditRoutes");
+const authMiddleware = require("./middleware/authMiddleware");
 app.use(express.json());
-app.use("/api/audit", auditRoutes);
+app.use("/api/audit", authMiddleware, auditRoutes);
 app.use("/api/policy", policyRoutes);
 
-app.use("/api/recovery", recoveryRoutes);
+app.use("/api/recovery", authMiddleware, recoveryRoutes);
 app.use("/api/ai", aiDecisionRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/transactions", transactionRoutes);
+app.use("/api/transactions", authMiddleware, transactionRoutes);
 app.get("/", (req, res) => {
   res.send("Hello World");
 });
