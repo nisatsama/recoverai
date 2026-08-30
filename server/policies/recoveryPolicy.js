@@ -41,17 +41,24 @@ const evaluateRecoveryPolicy = (transaction, aiDecision) => {
     };
   }
 
-  // Rule 5: Permanent failure
-  if (transaction.failureReason === "CARD_DECLINED") {
-    return {
-      allowed: false,
-      action: "NO_ACTION",
-      reason: "Card-declined transactions are treated as permanent failures.",
-    };
-  }
+  // // Rule 5: Permanent failure
+  // if (transaction.failureReason === "CARD_DECLINED") {
+  //   return {
+  //     allowed: false,
+  //     action: "NO_ACTION",
+  //     reason: "Card-declined transactions are treated as permanent failures.",
+  //   };
+  // }
 
-  // Rule 6: AI recommends an action
   if (aiDecision.recommendedAction === "RETRY") {
+    if (aiDecision.failureCategory !== "TEMPORARY") {
+      return {
+        allowed: false,
+        action: "RETRY",
+        reason: "Retry is only permitted for temporary failures.",
+      };
+    }
+
     return {
       allowed: true,
       action: "RETRY",
@@ -68,6 +75,15 @@ const evaluateRecoveryPolicy = (transaction, aiDecision) => {
   }
 
   if (aiDecision.recommendedAction === "UPDATE_PAYMENT_METHOD") {
+    if (aiDecision.failureCategory !== "CUSTOMER_ACTION_REQUIRED") {
+      return {
+        allowed: false,
+        action: "UPDATE_PAYMENT_METHOD",
+        reason:
+          "Payment method updates are only permitted when customer action is required.",
+      };
+    }
+
     return {
       allowed: true,
       action: "UPDATE_PAYMENT_METHOD",
@@ -84,6 +100,13 @@ const evaluateRecoveryPolicy = (transaction, aiDecision) => {
   }
 
   // Safety fallback
+  if (aiDecision.recommendedAction === "NO_ACTION") {
+    return {
+      allowed: true,
+      action: "NO_ACTION",
+      reason: "No recovery action is required.",
+    };
+  }
   return {
     allowed: false,
     action: "NO_ACTION",

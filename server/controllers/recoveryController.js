@@ -1,13 +1,12 @@
 const prisma = require("../config/prisma");
-
-// Prisma 7 + CommonJS
-// Keep these values aligned with prisma/schema.prisma
-
+const { evaluatePolicy } = require("../services/policyService");
+const { simulatePayment } = require("../services/paymentSimulator");
 const RecoveryAction = {
   RETRY: "RETRY",
-  NOTIFY_CUSTOMER: "NOTIFY_CUSTOMER",
-  REQUEST_NEW_PAYMENT_METHOD: "REQUEST_NEW_PAYMENT_METHOD",
-  SKIP: "SKIP",
+  SEND_REMINDER: "SEND_REMINDER",
+  UPDATE_PAYMENT_METHOD: "UPDATE_PAYMENT_METHOD",
+  ESCALATE: "ESCALATE",
+  NO_ACTION: "NO_ACTION",
 };
 
 const RecoveryStatus = {
@@ -25,89 +24,9 @@ const AuditActor = {
   MERCHANT: "MERCHANT",
 };
 
-/*
-|--------------------------------------------------------------------------
-| Policy Engine
-|--------------------------------------------------------------------------
-| This is intentionally kept inside the recovery controller for the MVP.
-| Later, move this into:
-|
-| services/policyEngine.service.js
-|
-| The policy engine decides whether an action is allowed.
-|--------------------------------------------------------------------------
-*/
-
-const evaluatePolicy = async (transaction, action, aiDecision) => {
-  let allowed = false;
-  let reason = "";
-
-  switch (action) {
-    case RecoveryAction.RETRY:
-      /*
-       * Retry only makes sense for temporary failures.
-       */
-      if (aiDecision && aiDecision.failureCategory === "TEMPORARY") {
-        allowed = true;
-        reason = "Retry is allowed for temporary payment failures.";
-      } else {
-        allowed = false;
-        reason =
-          "Retry is blocked because the transaction failure is not classified as temporary.";
-      }
-      break;
-
-    case RecoveryAction.NOTIFY_CUSTOMER:
-      /*
-       * Customer notification is generally safe.
-       */
-      allowed = true;
-      reason = "Customer notification is allowed.";
-      break;
-
-    case RecoveryAction.REQUEST_NEW_PAYMENT_METHOD:
-      /*
-       * A new payment method can be requested when the existing
-       * payment attempt cannot reasonably be retried.
-       */
-      allowed = true;
-      reason = "Requesting a new payment method is allowed.";
-      break;
-
-    case RecoveryAction.SKIP:
-      allowed = true;
-      reason = "Recovery has been explicitly skipped.";
-      break;
-
-    default:
-      allowed = false;
-      reason = "Unsupported recovery action.";
-  }
-
-  return {
-    allowed,
-    reason,
-  };
-};
-
-/*
-|--------------------------------------------------------------------------
-| POST /api/recovery/transactions/:transactionId
-|--------------------------------------------------------------------------
-| Create a recovery attempt.
-|
-| Body:
-| {
-|   "action": "RETRY"
-| }
-|--------------------------------------------------------------------------
-*/
-
 const createRecoveryAttempt = async (req, res) => {
   try {
     const { transactionId } = req.params;
-    const { action } = req.body;
-
     const merchantId = req.merchant?.id;
 
     if (!merchantId) {
@@ -117,20 +36,6 @@ const createRecoveryAttempt = async (req, res) => {
       });
     }
 
-    /*
-     * Validate action
-     */
-    if (!action || !Object.values(RecoveryAction).includes(action)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid recovery action.",
-        allowedActions: Object.values(RecoveryAction),
-      });
-    }
-
-    /*
-     * Find transaction belonging to logged-in merchant.
-     */
     const transaction = await prisma.transaction.findFirst({
       where: {
         id: transactionId,
@@ -148,9 +53,6 @@ const createRecoveryAttempt = async (req, res) => {
       });
     }
 
-    /*
-     * Recovery should only happen for failed transactions.
-     */
     if (transaction.status !== "FAILED") {
       return res.status(400).json({
         success: false,
@@ -158,19 +60,6 @@ const createRecoveryAttempt = async (req, res) => {
       });
     }
 
-    /*
-     * Prevent recovery when no AI decision exists.
-     *
-     * This enforces:
-     *
-     * Failed Transaction
-     *        ↓
-     *    AI Decision
-     *        ↓
-     * Recommended Action
-     *        ↓
-     *    Policy Engine
-     */
     if (!transaction.aiDecision) {
       return res.status(400).json({
         success: false,
@@ -179,26 +68,10 @@ const createRecoveryAttempt = async (req, res) => {
       });
     }
 
-    /*
-     * Check whether the requested action matches the AI recommendation.
-     *
-     * We don't completely block merchant overrides because a merchant
-     * may intentionally choose another action.
-     */
     const aiRecommendedAction = transaction.aiDecision.recommendedAction;
+    const action = aiRecommendedAction;
+    const policy = await evaluatePolicy(transaction, action);
 
-    /*
-     * Policy Engine
-     */
-    const policy = await evaluatePolicy(
-      transaction,
-      action,
-      transaction.aiDecision,
-    );
-
-    /*
-     * Store policy decision.
-     */
     const policyDecision = await prisma.policyDecision.create({
       data: {
         transactionId: transaction.id,
@@ -207,10 +80,6 @@ const createRecoveryAttempt = async (req, res) => {
         reason: policy.reason,
       },
     });
-
-    /*
-     * Audit the policy decision.
-     */
     await prisma.auditLog.create({
       data: {
         transactionId: transaction.id,
@@ -227,9 +96,6 @@ const createRecoveryAttempt = async (req, res) => {
       },
     });
 
-    /*
-     * If policy blocks the recovery, create a BLOCKED attempt.
-     */
     if (!policy.allowed) {
       const blockedAttempt = await prisma.recoveryAttempt.create({
         data: {
@@ -260,29 +126,18 @@ const createRecoveryAttempt = async (req, res) => {
         policyDecision,
       });
     }
-
-    /*
-     * Create pending recovery attempt.
-     *
-     * Actual execution happens through:
-     *
-     * POST /api/recovery/:recoveryAttemptId/execute
-     */
     const recoveryAttempt = await prisma.recoveryAttempt.create({
       data: {
         transactionId: transaction.id,
         action,
         status:
-          action === RecoveryAction.SKIP
+          action === RecoveryAction.NO_ACTION
             ? RecoveryStatus.SKIPPED
             : RecoveryStatus.PENDING,
-        executedAt: action === RecoveryAction.SKIP ? new Date() : null,
+
+        executedAt: action === RecoveryAction.NO_ACTION ? new Date() : null,
       },
     });
-
-    /*
-     * Audit creation.
-     */
     await prisma.auditLog.create({
       data: {
         transactionId: transaction.id,
@@ -302,8 +157,8 @@ const createRecoveryAttempt = async (req, res) => {
     return res.status(201).json({
       success: true,
       message:
-        action === RecoveryAction.SKIP
-          ? "Recovery skipped successfully."
+        action === RecoveryAction.NO_ACTION
+          ? "No recovery action required."
           : "Recovery attempt created successfully.",
       recoveryAttempt,
       policyDecision,
@@ -320,21 +175,6 @@ const createRecoveryAttempt = async (req, res) => {
   }
 };
 
-/*
-|--------------------------------------------------------------------------
-| POST /api/recovery/:recoveryAttemptId/execute
-|--------------------------------------------------------------------------
-| Execute a previously approved recovery attempt.
-|
-| IMPORTANT:
-| This MVP simulates execution.
-|
-| In production, this function should call your payment gateway:
-|
-| Razorpay / Stripe / Adyen / PayPal / internal payment API
-|--------------------------------------------------------------------------
-*/
-
 const executeRecovery = async (req, res) => {
   try {
     const { recoveryAttemptId } = req.params;
@@ -346,11 +186,6 @@ const executeRecovery = async (req, res) => {
         message: "Authentication required.",
       });
     }
-
-    /*
-     * Get recovery attempt and verify merchant ownership
-     * through the transaction.
-     */
     const recoveryAttempt = await prisma.recoveryAttempt.findFirst({
       where: {
         id: recoveryAttemptId,
@@ -373,10 +208,6 @@ const executeRecovery = async (req, res) => {
         message: "Recovery attempt not found.",
       });
     }
-
-    /*
-     * Only PENDING attempts can be executed.
-     */
     if (recoveryAttempt.status !== RecoveryStatus.PENDING) {
       return res.status(400).json({
         success: false,
@@ -385,19 +216,7 @@ const executeRecovery = async (req, res) => {
     }
 
     const transaction = recoveryAttempt.transaction;
-
-    /*
-     * Final policy check.
-     *
-     * This is important because execution should never blindly trust
-     * an earlier decision.
-     */
-    const policy = await evaluatePolicy(
-      transaction,
-      recoveryAttempt.action,
-      transaction.aiDecision,
-    );
-
+    const policy = await evaluatePolicy(transaction, recoveryAttempt.action);
     if (!policy.allowed) {
       const blockedAttempt = await prisma.recoveryAttempt.update({
         where: {
@@ -428,69 +247,63 @@ const executeRecovery = async (req, res) => {
         recoveryAttempt: blockedAttempt,
       });
     }
-
-    /*
-     * ---------------------------------------------------------------
-     * MOCK EXECUTION
-     * ---------------------------------------------------------------
-     *
-     * Replace this section with the actual payment gateway call.
-     *
-     * For now:
-     *
-     * RETRY -> simulated successful recovery
-     * NOTIFY_CUSTOMER -> successful execution, but no revenue recovered
-     * REQUEST_NEW_PAYMENT_METHOD -> successful request, no revenue yet
-     */
     let executionStatus = RecoveryStatus.SUCCESS;
     let amountRecovered = null;
     let failureReason = null;
 
     switch (recoveryAttempt.action) {
-      case RecoveryAction.RETRY:
-        /*
-         * Simulated retry.
-         *
-         * In production:
-         *
-         * const paymentResult = await paymentService.retryPayment(...)
-         */
-        executionStatus = RecoveryStatus.SUCCESS;
-        amountRecovered = transaction.amount;
-        break;
+      case RecoveryAction.RETRY: {
+        const paymentResult = simulatePayment(transaction);
 
-      case RecoveryAction.NOTIFY_CUSTOMER:
-        /*
-         * In production:
-         *
-         * await notificationService.sendPaymentFailureEmail(...)
-         */
+        if (paymentResult.status === "SUCCESS") {
+          executionStatus = RecoveryStatus.SUCCESS;
+          amountRecovered = transaction.amount;
+        } else {
+          executionStatus = RecoveryStatus.FAILED;
+          failureReason =
+            paymentResult.message || "Payment recovery attempt failed";
+        }
+
+        break;
+      }
+
+      case RecoveryAction.SEND_REMINDER:
         executionStatus = RecoveryStatus.SUCCESS;
         amountRecovered = null;
         break;
 
-      case RecoveryAction.REQUEST_NEW_PAYMENT_METHOD:
-        /*
-         * In production:
-         *
-         * await paymentService.requestNewPaymentMethod(...)
-         */
+      case RecoveryAction.UPDATE_PAYMENT_METHOD:
         executionStatus = RecoveryStatus.SUCCESS;
         amountRecovered = null;
         break;
 
-      case RecoveryAction.SKIP:
+      case RecoveryAction.NO_ACTION:
         executionStatus = RecoveryStatus.SKIPPED;
         break;
-
+      case RecoveryAction.ESCALATE:
+        executionStatus = RecoveryStatus.SKIPPED;
+        amountRecovered = null;
+        failureReason = "Transaction escalated for manual review.";
+        break;
       default:
         executionStatus = RecoveryStatus.FAILED;
         failureReason = "Unsupported recovery action.";
     }
-
-    /*
-     * Update recovery attempt.
-     */
+    if (recoveryAttempt.action === RecoveryAction.RETRY) {
+      await prisma.transaction.update({
+        where: {
+          id: transaction.id,
+        },
+        data: {
+          ...(executionStatus === RecoveryStatus.SUCCESS
+            ? { status: "SUCCESS" }
+            : {}),
+          retryCount: {
+            increment: 1,
+          },
+        },
+      });
+    }
     const updatedAttempt = await prisma.recoveryAttempt.update({
       where: {
         id: recoveryAttempt.id,
@@ -503,9 +316,6 @@ const executeRecovery = async (req, res) => {
       },
     });
 
-    /*
-     * Audit execution.
-     */
     await prisma.auditLog.create({
       data: {
         transactionId: transaction.id,
@@ -542,15 +352,6 @@ const executeRecovery = async (req, res) => {
     });
   }
 };
-
-/*
-|--------------------------------------------------------------------------
-| GET /api/recovery
-|--------------------------------------------------------------------------
-| Get all recovery attempts for the logged-in merchant.
-|--------------------------------------------------------------------------
-*/
-
 const getRecoveryAttempts = async (req, res) => {
   try {
     const merchantId = req.merchant?.id;
@@ -602,15 +403,6 @@ const getRecoveryAttempts = async (req, res) => {
     });
   }
 };
-
-/*
-|--------------------------------------------------------------------------
-| GET /api/recovery/transactions/:transactionId
-|--------------------------------------------------------------------------
-| Get recovery history for one transaction.
-|--------------------------------------------------------------------------
-*/
-
 const getRecoveryAttemptByTransaction = async (req, res) => {
   try {
     const { transactionId } = req.params;
@@ -622,10 +414,6 @@ const getRecoveryAttemptByTransaction = async (req, res) => {
         message: "Authentication required.",
       });
     }
-
-    /*
-     * Verify transaction ownership.
-     */
     const transaction = await prisma.transaction.findFirst({
       where: {
         id: transactionId,
@@ -665,18 +453,6 @@ const getRecoveryAttemptByTransaction = async (req, res) => {
     });
   }
 };
-
-/*
-|--------------------------------------------------------------------------
-| GET /api/recovery/:recoveryAttemptId
-|--------------------------------------------------------------------------
-| Get one recovery attempt by ID.
-|
-| Your requested routes didn't explicitly list this route, but since you
-| requested getRecoveryAttemptById(), this endpoint should exist.
-|--------------------------------------------------------------------------
-*/
-
 const getRecoveryAttemptById = async (req, res) => {
   try {
     const { recoveryAttemptId } = req.params;

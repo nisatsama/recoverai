@@ -5,8 +5,8 @@ const SUCCESS_PROBABILITY = {
   EXPIRED_CARD: 0.05,
 };
 
-const simulatePayment = (failureReason) => {
-  const successProbability = SUCCESS_PROBABILITY[failureReason];
+const simulatePayment = (transaction) => {
+  const successProbability = SUCCESS_PROBABILITY[transaction.failureReason];
 
   if (successProbability === undefined) {
     return {
