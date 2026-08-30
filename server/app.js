@@ -9,7 +9,7 @@ const aiDecisionRoutes = require("./routes/aiDecisionRoutes");
 const recoveryRoutes = require("./routes/recoveryRoutes");
 const policyRoutes = require("./routes/policyroutes");
 const auditRoutes = require("./routes/auditRoutes");
-
+const analyticsRoutes = require("./routes/analyticsRoutes");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
@@ -31,6 +31,7 @@ app.use("/api/policy", policyRoutes);
 
 app.use("/api/ai", aiDecisionRoutes);
 
+app.use("/api/analytics", authMiddleware, analyticsRoutes);
 // Health check
 app.get("/", (req, res) => {
   res.send("Hello World");
