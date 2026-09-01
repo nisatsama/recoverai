@@ -1,0 +1,54 @@
+<svg width="220" height="52" viewBox="0 0 220 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="recoverGradient" x1="6" y1="6" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon -->
+  <g transform="translate(4 4)">
+    <!-- Recovery arc -->
+    <path
+      d="M17 4C9.82 4 4 9.82 4 17C4 24.18 9.82 30 17 30"
+      stroke="url(#recoverGradient)"
+      stroke-width="4"
+      stroke-linecap="round"
+    />
+
+    <!-- Arrow showing recovery -->
+    <path
+      d="M17 30L12.5 25.5"
+      stroke="url(#recoverGradient)"
+      stroke-width="4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <path
+      d="M17 30L21.5 25.5"
+      stroke="url(#recoverGradient)"
+      stroke-width="4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Revenue bars -->
+    <rect x="20" y="18" width="4" height="10" rx="2" fill="#6366F1"/>
+    <rect x="26" y="13" width="4" height="15" rx="2" fill="#3B82F6"/>
+    <rect x="32" y="7" width="4" height="21" rx="2" fill="#06B6D4"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text
+    x="55"
+    y="34"
+    font-family="Inter, Arial, Helvetica, sans-serif"
+    font-size="25"
+    font-weight="700"
+    letter-spacing="-0.8"
+    fill="#0c0e13"
+  >
+    Recover<tspan fill="#4F46E5">AI</tspan>
+  </text>
+</svg>
