@@ -7,7 +7,7 @@
 #   server:
 #     build: ./server
 #     ports:
-#       - "5000:5000"
+#       - "3000:3000"
 #     environment:
 #       DATABASE_URL: postgresql://postgres:password@db:5432/recoverai
 #     depends_on:
