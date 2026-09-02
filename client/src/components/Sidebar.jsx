@@ -17,25 +17,16 @@ import {
 const Sidebar = () => {
   const menuItems = [
     {
-      name: "Overview",
-      path: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
       name: "Transactions",
       path: "/transactions",
       icon: CreditCard,
     },
     {
-      name: "AI Decisions",
-      path: "/decisions",
+      name: "Recovery Studio",
+      path: "/ai-decisions",
       icon: Brain,
     },
-    {
-      name: "Customers",
-      path: "/customers",
-      icon: Users,
-    },
+
     {
       name: "Analytics",
       path: "/analytics",
@@ -55,11 +46,6 @@ const Sidebar = () => {
       name: "Integrations",
       path: "/integrations",
       icon: Plug,
-    },
-    {
-      name: "Settings",
-      path: "/settings",
-      icon: Settings,
     },
   ];
 

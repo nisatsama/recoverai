@@ -6,6 +6,7 @@ import Transactions from "./pages/Transactions";
 //import TransactionDetails from "./pages/TransactionDetails";
 import AiDecision from "./pages/AiDecision";
 import AIDecisionDetails from "./pages/AiDecisionDetails";
+import Analytics from "./pages/Analytics";
 function App() {
   return (
     <Routes>
@@ -16,6 +17,7 @@ function App() {
       {/* <Route path="/transactions/:id" element={<TransactionsDetails />} /> */}
       <Route path="/ai-decisions" element={<AiDecision />} />
       <Route path="/ai-decisions/:id" element={<AIDecisionDetails />} />
+      <Route path="/analytics" element={<Analytics />} />
     </Routes>
   );
 }

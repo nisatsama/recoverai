@@ -13,20 +13,14 @@ const formatCurrency = (amount) => {
 
 const getStatusStyle = (status) => {
   switch (status?.toUpperCase()) {
-    case "RECOVERED":
+    case "SUCCESS":
       return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
 
     case "PENDING":
       return "bg-amber-500/10 text-amber-400 border-amber-500/20";
 
-    case "RECOVERING":
-      return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-
-    case "BLOCKED":
+    case "FAILED":
       return "bg-red-500/10 text-red-400 border-red-500/20";
-
-    case "ACTION":
-      return "bg-orange-500/10 text-orange-400 border-orange-500/20";
 
     default:
       return "bg-slate-500/10 text-slate-400 border-slate-500/20";
@@ -139,9 +133,12 @@ export default function Transactions() {
       const searchValue = search.toLowerCase();
 
       const matchesSearch =
+        searchValue === "" ||
+        tx.id?.toLowerCase().includes(searchValue) ||
         tx.transactionId?.toLowerCase().includes(searchValue) ||
         tx.customer?.name?.toLowerCase().includes(searchValue) ||
-        tx.customerName?.toLowerCase().includes(searchValue);
+        tx.customerName?.toLowerCase().includes(searchValue) ||
+        tx.customerEmail?.toLowerCase().includes(searchValue);
 
       const matchesStatus =
         statusFilter === "ALL" || tx.status?.toUpperCase() === statusFilter;
@@ -357,14 +354,7 @@ export default function Transactions() {
           <FilterSelect
             value={statusFilter}
             onChange={setStatusFilter}
-            options={[
-              "ALL",
-              "RECOVERED",
-              "PENDING",
-              "RECOVERING",
-              "ACTION",
-              "BLOCKED",
-            ]}
+            options={["ALL", "PENDING", "SUCCESS", "FAILED"]}
             label="Status"
           />
 
@@ -493,9 +483,9 @@ export default function Transactions() {
                           )}`}
                         >
                           <span>
-                            {tx.status?.toUpperCase() === "RECOVERED"
+                            {tx.status?.toUpperCase() === "SUCCESS"
                               ? "✓"
-                              : tx.status?.toUpperCase() === "BLOCKED"
+                              : tx.status?.toUpperCase() === "FAILED"
                                 ? "✕"
                                 : "●"}
                           </span>

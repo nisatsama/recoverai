@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const formatAmount = (amount, currency = "INR") => {
   if (currency === "INR") {
-    return `₹${Number(amount).toLocaleString("en-IN")}`;
+    return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
   }
 
-  return `${currency} ${Number(amount).toLocaleString()}`;
+  return `${currency} ${Number(amount || 0).toLocaleString()}`;
 };
 
 const formatPercent = (value) => {
-  return `${Math.round(Number(value) * 100)}%`;
+  return `${Math.round(Number(value || 0) * 100)}%`;
 };
 
 const getActionStyles = (action) => {
@@ -36,8 +35,8 @@ const getActionStyles = (action) => {
 };
 
 const getPolicyStatus = (decision) => {
-  // Temporary frontend logic.
-  // Replace this with real policyDecision from backend later.
+  // Temporary frontend policy logic.
+  // Replace with backend policyDecision when available.
   if (
     decision.recommendedAction === "RETRY" &&
     decision.transaction?.failureReason === "Insufficient Funds"
@@ -50,7 +49,6 @@ const getPolicyStatus = (decision) => {
 
 const DecisionCard = ({ decision, onView }) => {
   const transaction = decision.transaction;
-
   const policyStatus = getPolicyStatus(decision);
 
   return (
@@ -97,7 +95,7 @@ const DecisionCard = ({ decision, onView }) => {
           </div>
 
           <p className="mt-2 font-medium text-gray-900">
-            {decision.failureCategory}
+            {decision.failureCategory || "Unknown"}
           </p>
         </div>
 
@@ -112,7 +110,7 @@ const DecisionCard = ({ decision, onView }) => {
               decision.recommendedAction,
             )}`}
           >
-            {decision.recommendedAction.replaceAll("_", " ")}
+            {(decision.recommendedAction || "UNKNOWN").replaceAll("_", " ")}
           </span>
         </div>
 
@@ -135,7 +133,7 @@ const DecisionCard = ({ decision, onView }) => {
         </p>
 
         <p className="mt-2 text-sm leading-6 text-gray-600">
-          {decision.reason}
+          {decision.reason || "No reasoning provided."}
         </p>
       </div>
 
@@ -170,10 +168,6 @@ const AIDecision = () => {
   const [actionFilter, setActionFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  useEffect(() => {
-    fetchDecisions();
-  }, []);
-
   const fetchDecisions = async () => {
     try {
       setLoading(true);
@@ -181,35 +175,50 @@ const AIDecision = () => {
 
       const token = localStorage.getItem("token");
 
-      const response = await axios.get("api/decisions", {
+      if (!token) {
+        setError("Authentication required. Please login again.");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/ai/decisions`, {
+        method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
-      setDecisions(response.data.data || []);
-    } catch (err) {
-      console.error(err);
+      const data = await response.json();
 
-      setError(
-        err.response?.data?.message ||
-          "Failed to load AI decisions. Please try again.",
-      );
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load AI decisions.");
+      }
+
+      setDecisions(data.data || []);
+    } catch (err) {
+      console.error("Fetch decisions error:", err);
+
+      setError(err.message || "Failed to load AI decisions. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    fetchDecisions();
+  }, []);
 
   const filteredDecisions = useMemo(() => {
+    const normalizedSearch = search.toLowerCase().trim();
+
     return decisions.filter((decision) => {
       const transaction = decision.transaction;
 
       const matchesSearch =
-        transaction?.id?.toLowerCase().includes(search.toLowerCase()) ||
-        transaction?.failureReason
-          ?.toLowerCase()
-          .includes(search.toLowerCase()) ||
-        decision.reason?.toLowerCase().includes(search.toLowerCase());
+        !normalizedSearch ||
+        transaction?.id?.toLowerCase().includes(normalizedSearch) ||
+        transaction?.failureReason?.toLowerCase().includes(normalizedSearch) ||
+        decision.reason?.toLowerCase().includes(normalizedSearch) ||
+        decision.failureCategory?.toLowerCase().includes(normalizedSearch);
 
       const matchesAction =
         actionFilter === "ALL" || decision.recommendedAction === actionFilter;
@@ -228,9 +237,10 @@ const AIDecision = () => {
       (decision) => getPolicyStatus(decision) === "APPROVED",
     ).length;
 
-    const revenueAtRisk = decisions.reduce((total, decision) => {
-      return total + Number(decision.transaction?.amount || 0);
-    }, 0);
+    const revenueAtRisk = decisions.reduce(
+      (total, decision) => total + Number(decision.transaction?.amount || 0),
+      0,
+    );
 
     return {
       total: decisions.length,
@@ -238,7 +248,7 @@ const AIDecision = () => {
       approvalRate:
         decisions.length > 0
           ? ((approved / decisions.length) * 100).toFixed(1)
-          : 0,
+          : "0.0",
       revenueAtRisk,
     };
   }, [decisions]);
@@ -318,7 +328,7 @@ const AIDecision = () => {
             <option value="STOP">Stop</option>
           </select>
 
-          {/* Status */}
+          {/* Status filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
