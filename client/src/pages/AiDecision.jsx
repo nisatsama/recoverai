@@ -181,7 +181,7 @@ const AIDecision = () => {
 
       const token = localStorage.getItem("token");
 
-      const response = await axios.get(`${API_URL}/api/ai/decisions`, {
+      const response = await axios.get("api/decisions", {
         headers: {
           Authorization: `Bearer ${token}`,
         },

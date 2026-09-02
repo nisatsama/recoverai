@@ -28,7 +28,7 @@ const Sidebar = () => {
     },
     {
       name: "AI Decisions",
-      path: "/aiDecisions",
+      path: "/decisions",
       icon: Brain,
     },
     {
