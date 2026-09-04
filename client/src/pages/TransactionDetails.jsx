@@ -243,22 +243,36 @@ function TransactionContent({ transaction: tx, onTransactionUpdate }) {
       if (response.ok) {
         const decision = data.data || data.aiDecision || data;
 
+        const policyResponse = await evaluatePolicy(decision.recommendedAction);
+        const policyDecision = policyResponse.data || policyResponse;
+
         setAiDecision(decision);
 
         onTransactionUpdate?.({
           ...tx,
           aiDecision: decision,
+          policy: policyDecision,
+          policyApproved: policyDecision.allowed,
+          policyReason: policyDecision.reason,
         });
 
         return;
       }
 
       if (response.status === 409 && data.data) {
+        const policyResponse = await evaluatePolicy(
+          data.data.recommendedAction,
+        );
+        const policyDecision = policyResponse.data || policyResponse;
+
         setAiDecision(data.data);
 
         onTransactionUpdate?.({
           ...tx,
           aiDecision: data.data,
+          policy: policyDecision,
+          policyApproved: policyDecision.allowed,
+          policyReason: policyDecision.reason,
         });
 
         return;
@@ -271,6 +285,29 @@ function TransactionContent({ transaction: tx, onTransactionUpdate }) {
     } finally {
       setDecisionLoading(false);
     }
+  };
+
+  const evaluatePolicy = async (requestedAction) => {
+    const token = localStorage.getItem("token");
+    const response = await fetch(
+      `${API_URL}/api/policy/transactions/${tx.id}/evaluate`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ requestedAction }),
+      },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to evaluate recovery policy");
+    }
+
+    return data;
   };
 
   /* ==================================================
@@ -316,13 +353,16 @@ function TransactionContent({ transaction: tx, onTransactionUpdate }) {
        * the URL below.
        */
 
-      const response = await fetch(`${API_URL}/api/recovery/${tx.id}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_URL}/api/recovery/transactions/${tx.id}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       const data = await response.json();
 
@@ -401,9 +441,18 @@ function TransactionContent({ transaction: tx, onTransactionUpdate }) {
    * These values are displayed only.
    */
 
+  const latestPolicyDecision =
+    tx.policy ??
+    tx.policyDecision ??
+    [...(tx.policyDecisions || [])].sort(
+      (first, second) =>
+        new Date(second.createdAt || 0) - new Date(first.createdAt || 0),
+    )[0] ??
+    null;
+
   const policyApproved =
     tx.policyApproved ??
-    tx.policy?.approved ??
+    latestPolicyDecision?.allowed ??
     aiDecision?.policyApproved ??
     false;
 
@@ -418,7 +467,11 @@ function TransactionContent({ transaction: tx, onTransactionUpdate }) {
 
   const policyChecks = tx.policy?.checks || aiDecision?.policy?.checks || null;
 
-  const policyReason = tx.policy?.reason || aiDecision?.policy?.reason || "";
+  const policyReason =
+    tx.policyReason ||
+    latestPolicyDecision?.reason ||
+    aiDecision?.policy?.reason ||
+    "";
 
   const execution = tx.execution || null;
 

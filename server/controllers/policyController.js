@@ -22,9 +22,10 @@ const evaluatePolicyController = async (req, res) => {
 
     const validActions = [
       "RETRY",
-      "NOTIFY_CUSTOMER",
-      "REQUEST_NEW_PAYMENT_METHOD",
-      "SKIP",
+      "SEND_REMINDER",
+      "UPDATE_PAYMENT_METHOD",
+      "ESCALATE",
+      "NO_ACTION",
     ];
 
     if (!validActions.includes(requestedAction)) {
@@ -50,16 +51,22 @@ const evaluatePolicyController = async (req, res) => {
     }
 
     // If your auth middleware attaches merchantId to req.user
-    if (
-      req.user?.merchantId &&
-      transaction.merchantId !== req.user.merchantId
-    ) {
+    if (transaction.merchantId !== req.merchant.id) {
       return res.status(403).json({
         message: "You are not authorized to access this transaction",
       });
     }
 
-    const result = await evaluatePolicy(transaction, requestedAction);
+    if (!transaction.aiDecision) {
+      return res.status(400).json({
+        message: "No AI decision exists for this transaction",
+      });
+    }
+
+    const result = await evaluatePolicy(transaction, {
+      ...transaction.aiDecision,
+      recommendedAction: requestedAction,
+    });
 
     const decision = await createPolicyDecision({
       transactionId,
@@ -106,10 +113,7 @@ const getPolicyDecision = async (req, res) => {
       });
     }
 
-    if (
-      req.user?.merchantId &&
-      transaction.merchantId !== req.user.merchantId
-    ) {
+    if (transaction.merchantId !== req.merchant.id) {
       return res.status(403).json({
         message: "You are not authorized to access this transaction",
       });
@@ -151,11 +155,9 @@ const getPolicyDecisions = async (req, res) => {
     const where = {};
 
     // Recommended: restrict decisions to the authenticated merchant.
-    if (req.user?.merchantId) {
-      where.transaction = {
-        merchantId: req.user.merchantId,
-      };
-    }
+    where.transaction = {
+      merchantId: req.merchant.id,
+    };
 
     const decisions = await prisma.policyDecision.findMany({
       where,

@@ -32,21 +32,6 @@ const Sidebar = () => {
       path: "/analytics",
       icon: BarChart3,
     },
-    {
-      name: "Policies",
-      path: "/policies",
-      icon: FileText,
-    },
-    {
-      name: "Audit Trail",
-      path: "/audit",
-      icon: ClipboardCheck,
-    },
-    {
-      name: "Integrations",
-      path: "/integrations",
-      icon: Plug,
-    },
   ];
 
   return (
