@@ -104,7 +104,7 @@ Return only the requested JSON decision.
 `;
 
     const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL,
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       input: [
         {
           role: "system",

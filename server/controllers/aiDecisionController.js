@@ -1,5 +1,5 @@
 const prisma = require("../config/prisma");
-const aiService = require("../services/aiService");
+const { analyzeTransaction } = require("../agents/recoveryAgents");
 const createAIDecision = async (req, res) => {
   try {
     const { transactionId } = req.params;
@@ -35,7 +35,7 @@ const createAIDecision = async (req, res) => {
         data: existingDecision,
       });
     }
-    const analysis = await aiService.analyzeTransaction(transaction);
+    const analysis = await analyzeTransaction(transaction);
     if (
       !analysis ||
       !analysis.failureCategory ||
