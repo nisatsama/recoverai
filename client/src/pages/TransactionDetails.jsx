@@ -202,6 +202,42 @@ export default function TransactionsDetails({ transactionId, onClose }) {
 ====================================================== */
 
 function TransactionContent({ transaction: tx }) {
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  const [decisionError, setDecisionError] = useState("");
+  const [aiDecision, setAiDecision] = useState(null);
+
+  const getAIDecision = async () => {
+    try {
+      setDecisionLoading(true);
+      setDecisionError("");
+
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${API_URL}/api/transactions/${tx.transactionId || tx.id}/ai-decision`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to generate AI decision");
+      }
+
+      const data = await response.json();
+
+      setAiDecision(data.aiDecision || data);
+    } catch (err) {
+      console.error(err);
+      setDecisionError(err.message || "Failed to get AI decision");
+    } finally {
+      setDecisionLoading(false);
+    }
+  };
   const status = getStatus(tx.status);
 
   const retryCount = tx.retryCount ?? tx.execution?.retryCount ?? 0;
@@ -319,7 +355,51 @@ function TransactionContent({ transaction: tx }) {
       </DetailSection>
 
       <Divider />
+      {/* ==================================================
+    GET AI DECISION
+================================================== */}
 
+      <div className="mb-6">
+        <button
+          onClick={getAIDecision}
+          disabled={decisionLoading}
+          className="w-full rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {decisionLoading ? "Analyzing Transaction..." : "⚡ Get AI Decision"}
+        </button>
+
+        {decisionError && (
+          <p className="mt-2 text-xs text-red-400">{decisionError}</p>
+        )}
+
+        {aiDecision && (
+          <div className="mt-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+            <p className="text-xs uppercase tracking-wider text-slate-500">
+              AI Decision
+            </p>
+
+            <p className="mt-2 text-base font-semibold text-white">
+              {formatAction(
+                aiDecision.action ||
+                  aiDecision.recommendedAction ||
+                  "No action",
+              )}
+            </p>
+
+            {aiDecision.diagnosis && (
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                {aiDecision.diagnosis}
+              </p>
+            )}
+
+            {aiDecision.confidence !== undefined && (
+              <p className="mt-3 text-xs text-indigo-400">
+                Confidence: {aiDecision.confidence}%
+              </p>
+            )}
+          </div>
+        )}
+      </div>
       {/* ==================================================
           RECOMMENDED ACTION
       ================================================== */}
