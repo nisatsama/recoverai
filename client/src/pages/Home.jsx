@@ -20,7 +20,6 @@ const API_URL = "http://localhost:3000";
 function Home() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchAnalytics();
@@ -42,10 +41,8 @@ function Home() {
 
       const data = await response.json();
       setAnalytics(data);
-      setError("");
     } catch (err) {
       console.error(err);
-      setError("Unable to load dashboard data.");
     } finally {
       setLoading(false);
     }
@@ -225,31 +222,7 @@ function Home() {
                 Monitor your revenue recovery performance.
               </p>
             </div>
-
-            <button
-              onClick={fetchAnalytics}
-              className="
-                px-5 py-3
-                bg-gray-900
-                text-white
-                rounded-xl
-                hover:bg-gray-800
-                transition
-                font-medium
-                whitespace-nowrap
-              "
-            >
-              Refresh Data
-            </button>
           </div>
-
-          {/* ================= ERROR ================= */}
-
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl">
-              {error}
-            </div>
-          )}
 
           {/* ================= KPI CARDS ================= */}
 

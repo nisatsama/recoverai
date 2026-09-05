@@ -75,7 +75,7 @@ const Signup = () => {
       localStorage.setItem("merchant", JSON.stringify(data.merchant));
 
       // Redirect to dashboard
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       setError(err.message || "Something went wrong.");
     } finally {

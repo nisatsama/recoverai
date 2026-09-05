@@ -58,7 +58,7 @@ const Login = () => {
       localStorage.setItem("merchant", JSON.stringify(data.merchant));
 
       // Redirect to dashboard
-      navigate("/");
+      navigate("/dashboard");
     } catch (error) {
       setError(error.message || "Something went wrong. Please try again.");
     } finally {

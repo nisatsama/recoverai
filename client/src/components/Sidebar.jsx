@@ -82,7 +82,14 @@ const Sidebar = () => {
 
       {/* Profile */}
       <div className="border-t border-slate-200 p-4">
-        <button className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-slate-100">
+        <NavLink
+          to="/profile"
+          className={({ isActive }) =>
+            `flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors ${
+              isActive ? "bg-slate-100" : "hover:bg-slate-100"
+            }`
+          }
+        >
           {/* Profile Icon */}
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200">
             <UserCircle size={25} className="text-slate-600" />
@@ -91,12 +98,16 @@ const Sidebar = () => {
           {/* User Info */}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-900">
-              User
+              {JSON.parse(localStorage.getItem("merchant") || "{}").name ||
+                "User"}
             </p>
 
-            <p className="truncate text-xs text-slate-500">user@example.com</p>
+            <p className="truncate text-xs text-slate-500">
+              {JSON.parse(localStorage.getItem("merchant") || "{}").email ||
+                "user@example.com"}
+            </p>
           </div>
-        </button>
+        </NavLink>
       </div>
     </aside>
   );
